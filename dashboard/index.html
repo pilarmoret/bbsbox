@@ -85,13 +85,13 @@
     <div class="card"><div class="label">Última execução</div><div class="value" id="cLast">—</div><div class="hint" id="cLastWhen"></div></div>
     <div class="card"><div class="label">Taxa de sucesso (últ. 20)</div><div class="value" id="cRate">—</div><div class="hint" id="cRateHint"></div></div>
     <div class="card"><div class="label">Próxima execução</div><div class="value" id="cNext">—</div><div class="hint">agendamento automático</div></div>
-    <div class="card"><div class="label">Relatórios gerados</div><div class="value" id="cReports">—</div><div class="hint">em outputs/reports/</div></div>
+    <div class="card"><div class="label">Relatórios gerados</div><div class="value" id="cReports">—</div><div class="hint">arquivados no repositório</div></div>
   </div>
 
-  <h2>Execuções recentes</h2>
+  <h2>Últimas 3 execuções</h2>
   <div id="runs">Carregando…</div>
 
-  <h2>Relatórios da rotina</h2>
+  <h2>Relatório atual <a href="https://github.com/pilarmoret/bbsbox/tree/main/outputs/reports" target="_blank" style="font-size:.7rem;color:var(--muted);text-decoration:none">(arquivo completo ↗)</a></h2>
   <div id="reports">Carregando…</div>
 
   <footer>RJ+ / The BB's Box — atualiza sozinho a cada 60s · dados via API pública do GitHub</footer>
@@ -156,7 +156,7 @@ async function loadRuns() {
       alertEl.innerHTML = '<strong>⚠ As execuções mais recentes falharam.</strong> Causa mais comum: créditos da API Anthropic esgotados — verifique em <a href="https://console.anthropic.com/settings/billing" target="_blank" style="color:var(--accent)">console.anthropic.com → Billing</a>. Detalhes no log da execução abaixo.';
     } else { alertEl.style.display = 'none'; }
 
-    el.innerHTML = runs.map(r => {
+    el.innerHTML = runs.slice(0, 3).map(r => {
       const b = r.status !== 'completed' ? '<span class="badge b-run">rodando</span>'
         : r.conclusion === 'success' ? '<span class="badge b-ok">sucesso</span>'
         : '<span class="badge b-fail">falhou</span>';
@@ -184,23 +184,21 @@ async function loadReports() {
   const el = $('reports');
   try {
     const files = await gh('/contents/outputs/reports');
-    const mds = files.filter(f => f.name.endsWith('.md')).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 10);
+    const mds = files.filter(f => f.name.endsWith('.md')).sort((a, b) => b.name.localeCompare(a.name));
     $('cReports').textContent = mds.length;
     if (!mds.length) { el.textContent = 'Nenhum relatório ainda.'; return; }
-    el.innerHTML = mds.map(f => `<details class="report" data-url="${f.download_url}"><summary>📄 ${f.name}</summary><div class="md">carregando…</div></details>`).join('');
-    el.querySelectorAll('details').forEach(d => d.addEventListener('toggle', async () => {
-      if (d.open && !d.dataset.loaded) {
-        d.dataset.loaded = '1';
-        const t = await (await fetch(d.dataset.url)).text();
-        d.querySelector('.md').innerHTML = md(t);
-      }
-    }));
+    const latest = mds[0];
+    if (el.dataset.shown === latest.name) return; // já está na tela
+    el.innerHTML = '<div class="report" style="padding:16px"><div style="color:var(--accent);font-size:.8rem;margin-bottom:10px">📄 ' + latest.name + '</div><div class="md">carregando…</div></div>';
+    const t = await (await fetch(latest.download_url)).text();
+    el.querySelector('.md').innerHTML = md(t);
+    el.dataset.shown = latest.name;
   } catch (e) {
-    $('cReports').textContent = '0';
     if (e.message === 'rate') { el.textContent = '⚠ Limite de leituras anônimas atingido — faça a ativação única (botão ▶) para leituras ilimitadas.'; return; }
+    $('cReports').textContent = '0';
     el.textContent = e.message === 'http404'
       ? 'Nenhum relatório gerado ainda — a pasta outputs/reports/ será criada pela rotina.'
-      : 'Erro ao carregar relatórios.';
+      : 'Erro ao carregar relatório.';
   }
 }
 
