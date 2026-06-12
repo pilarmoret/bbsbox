@@ -69,6 +69,18 @@
   <div id="alert" class="alert"></div>
   <div class="msg" id="runMsg" style="margin:-12px 0 16px"></div>
 
+  <div id="activate" class="tokenbox" style="display:none">
+    <div class="label" style="color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em">Ativação (uma única vez neste dispositivo)</div>
+    <p>Para o botão disparar sozinho, cole seu código de ativação. Como criar (1x):
+       <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" style="color:var(--accent)">github.com/settings/personal-access-tokens/new</a>
+       → Repository access: <b>Only select repositories → bbsbox</b> → Permissions → Actions: <b>Read and write</b> → Generate → copie o código.
+       Ele fica salvo só neste navegador; depois disso é 1 clique para sempre.</p>
+    <div class="row">
+      <input id="actInput" type="password" placeholder="github_pat_..." autocomplete="off" />
+      <button id="btnActivate">Ativar e rodar</button>
+    </div>
+  </div>
+
   <div class="cards">
     <div class="card"><div class="label">Última execução</div><div class="value" id="cLast">—</div><div class="hint" id="cLastWhen"></div></div>
     <div class="card"><div class="label">Taxa de sucesso (últ. 20)</div><div class="value" id="cRate">—</div><div class="hint" id="cRateHint"></div></div>
@@ -90,8 +102,12 @@ const OWNER = 'pilarmoret', REPO = 'bbsbox', WF = 'growth-routine.yml';
 const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
 const $ = id => document.getElementById(id);
 
+const tokenKey = 'bbsbox_activation';
 function headers() {
-  return { 'Accept': 'application/vnd.github+json' };
+  const h = { 'Accept': 'application/vnd.github+json' };
+  const t = localStorage.getItem(tokenKey);
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
 }
 const fmt = iso => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(iso));
 
@@ -187,18 +203,48 @@ async function loadReports() {
   }
 }
 
-$('btnRun').addEventListener('click', () => {
+async function dispatchRun() {
   const msg = $('runMsg');
-  window.open(`https://github.com/${OWNER}/${REPO}/actions/workflows/${WF}`, '_blank');
-  msg.textContent = 'ℹ Na página que abriu, clique em "Run workflow" → "Run workflow". O resultado aparece aqui em ~30s.';
-  msg.className = 'msg warn';
-  setTimeout(loadRuns, 30000);
+  msg.textContent = '⏳ Disparando a rotina…'; msg.className = 'msg warn';
+  try {
+    const r = await fetch(`${API}/actions/workflows/${WF}/dispatches`, {
+      method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' })
+    });
+    if (r.status === 204) {
+      msg.textContent = '✅ Rotina disparada! Acompanhando — o relatório aparece aqui sozinho (~5 min).';
+      msg.className = 'msg ok';
+      let n = 0;
+      const t = setInterval(() => { loadRuns(); loadReports(); if (++n >= 24) clearInterval(t); }, 20000);
+    } else if (r.status === 401 || r.status === 403) {
+      localStorage.removeItem(tokenKey);
+      msg.textContent = '⚠ Código de ativação inválido/expirado — clique de novo para reativar.';
+      msg.className = 'msg fail';
+    } else {
+      msg.textContent = '❌ Falha ao disparar (HTTP ' + r.status + ').'; msg.className = 'msg fail';
+    }
+  } catch { msg.textContent = '❌ Erro de rede.'; msg.className = 'msg fail'; }
+}
+
+$('btnRun').addEventListener('click', () => {
+  if (localStorage.getItem(tokenKey)) { dispatchRun(); return; }
+  $('activate').style.display = 'block';
+  $('actInput').focus();
+});
+
+$('btnActivate').addEventListener('click', () => {
+  const v = $('actInput').value.trim();
+  if (!v) return;
+  localStorage.setItem(tokenKey, v);
+  $('actInput').value = '';
+  $('activate').style.display = 'none';
+  dispatchRun();
 });
 
 $('btnRefresh').addEventListener('click', () => { loadRuns(); loadReports(); });
 
 loadRuns(); loadReports();
-setInterval(loadRuns, 60000);
+setInterval(() => { loadRuns(); loadReports(); }, 60000);
 </script>
 </body>
 </html>
