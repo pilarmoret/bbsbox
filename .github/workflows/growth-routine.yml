@@ -1,7 +1,7 @@
 name: BB's Box organic growth routine
 
-# Roda a rotina de growth orgânico da The BB's Box 2x por dia.
-# SETUP NECESSÁRIO (uma vez): ver README.md
+# Rotina de growth orgânico da The BB's Box — 2x por dia.
+# v3: auditoria permanente de catálogo + foco Brasil + blog "The Edit" 2x/semana.
 on:
   schedule:
     - cron: '0 12 * * *'   # 09:00 America/Sao_Paulo
@@ -22,9 +22,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        env:
+          SHOPIFY_ADMIN_TOKEN: ${{ secrets.SHOPIFY_ADMIN_TOKEN }}
           show_full_output: true
           claude_args: |
-            --allowedTools "Read,Write,Edit,Glob,Grep,TodoWrite,WebFetch,WebSearch,Bash(git:*),Bash(mkdir:*),Bash(date:*),Bash(ls:*),Bash(cat:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,TodoWrite,WebFetch,WebSearch,Bash(git:*),Bash(mkdir:*),Bash(date:*),Bash(ls:*),Bash(cat:*),Bash(curl:*)"
           prompt: |
             Você é o operador de e-commerce e growth orgânico da The BB's Box (thebbsbox.com).
             Execute a rotina definida em outputs/social-engagement-2026-06-09/captions.md e nas
@@ -40,7 +42,55 @@ jobs:
 
             ROTINA: 1) diagnóstico rápido; 2) conteúdo TikTok/Instagram complementar à Minta;
             3) blog Shopify + SEO de 3-5 produtos; 4) update no Google Business Profile;
-            5) status do Manychat; 6) relatório final no formato padrão.
+            5) status do Manychat; 6) CHECKS PERMANENTES DE CATÁLOGO (abaixo);
+            7) FOCO BRASIL (abaixo); 8) relatório final no formato padrão.
+
+            CHECKS PERMANENTES DE CATÁLOGO (toda execução, via fetch das páginas públicas):
+            - Links: testar os links rastreáveis (Bitly) e amostrar links internos das páginas
+              principais (home, weekly-edit, maison-doux, linen-house, voltage-drop, style-quiz);
+              reportar qualquer 404.
+            - Imagens: amostrar 10 produtos por execução (rotacionar) e reportar: produto sem
+              imagem, com 1 imagem só, ou descrição com <img> externo (ae01.alicdn.com etc.).
+            - Descrições: sinalizar descrições "lixo de dropshipping" (SPECIFICATIONS, CN:,
+              size_info, JSON cru) e propor reescrita SEO no tom da marca (rascunho no relatório;
+              a aplicação no Shopify é feita na sessão com acesso ao admin).
+            - Estoque: reportar produtos ativos visíveis nas coleções principais que aparecem
+              esgotados na vitrine, e sinalizar suspeita de vínculo quebrado com fornecedor
+              (Zendrop/Modalyst) quando preço/estoque parecerem inconsistentes.
+            - Títulos: sinalizar títulos em CAIXA ALTA/spam ("HOT SELL") ou >80 caracteres.
+
+            FOCO BRASIL (toda execução):
+            - 1 ideia de conteúdo PT-BR alinhada às tendências de inverno BR 2026: alfaiataria,
+              tricô vintage, gola alta, trench, courinho, paleta marrom-cacau/vinho/oliva.
+            - Considerar logística: Zendrop China = 20-45 dias para BR (não prometer rapidez);
+              recomendar peças candidatas a fornecimento local (CJ armazém BR / nacional).
+            - Pacotes internacionais: manter sugestões de preço <US$50 (Remessa Conforme,
+              MP 1.357/2026 — isenção de importação; ICMS ~17-20% continua).
+
+
+            BLOG "THE EDIT" — 2x POR SEMANA (somente nas execuções das 09:00 de SEGUNDA e QUINTA;
+            verifique o dia/hora com `date -u`; cron das 12:00 UTC = 09:00 Brasília):
+            - Escrever 1 artigo novo para o blog "the-edit" (gid://shopify/Blog/105419768063) no
+              formato REVISTA com colunas fixas (espelha o RJ+ News de rjmais.com/noticias),
+              numerando as edições ("The Edit · Edition #NNN") e SEMPRE com estas seções, nesta ordem:
+              1. Abertura curta (2 linhas, tom de conversa);
+              2. "📈 Trending Now" — tendências de moda da semana;
+              3. "🪡 From the Runway" — desfiles/moda internacional;
+              4. "💡 Style Ideas" — ideia prática de styling;
+              5. "👜 The Vintage Bag Corner" — uma bolsa clássica/vintage por edição;
+              6. Rodapé fixo: link da fundadora + CTA Weekly Edit + os 3 mundos.
+              Modelo canônico: artigo "Tailoring Takes Charge" (Edition #001) no blog the-edit.
+            - TODO artigo deve conter o link da fundadora:
+              /pages/the-founder-a-love-letter-to-fashion-vintage-bags
+            - SEO: metafields global title_tag (<70 chars) e description_tag (140-160 chars).
+            - PUBLICAÇÃO: se a variável de ambiente SHOPIFY_ADMIN_TOKEN existir, publique via
+              Admin API REST com curl:
+              curl -X POST "https://af0150-3.myshopify.com/admin/api/2026-04/blogs/105419768063/articles.json"
+                -H "X-Shopify-Access-Token: $SHOPIFY_ADMIN_TOKEN" -H "Content-Type: application/json"
+                -d '{"article": {"title": "...", "body_html": "...", "published": true, "tags": "the edit, trends, vintage bags"}}'
+              Se o token NÃO existir, salve o artigo completo como rascunho em
+              outputs/blog-drafts/<data>.md e liste no relatório como "aguardando publicação".
+            - Nos outros dias/horários: NÃO criar artigo (manter cadência de 2x/semana).
 
             LINKS RASTREÁVEIS (usar sempre): Instagram/TikTok https://bit.ly/43qQJXX |
             Facebook https://bit.ly/4uowANi | Google Business Profile https://bit.ly/4us3tbR
