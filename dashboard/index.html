@@ -166,7 +166,7 @@ async function loadRuns() {
     }).join('');
   } catch (e) {
     $('runs').textContent = e.message === 'rate'
-      ? 'Limite da API do GitHub atingido — salve um token acima para aumentar o limite, ou aguarde alguns minutos.'
+      ? '⚠ Limite de leituras anônimas do GitHub atingido. Clique em \u25b6 Rodar agora e faça a ativação única — o painel passa a ter leituras ilimitadas e atualização ao vivo.'
       : 'Erro ao carregar execuções (' + e.message + ').';
   }
 }
@@ -197,6 +197,7 @@ async function loadReports() {
     }));
   } catch (e) {
     $('cReports').textContent = '0';
+    if (e.message === 'rate') { el.textContent = '⚠ Limite de leituras anônimas atingido — faça a ativação única (botão ▶) para leituras ilimitadas.'; return; }
     el.textContent = e.message === 'http404'
       ? 'Nenhum relatório gerado ainda — a pasta outputs/reports/ será criada pela rotina.'
       : 'Erro ao carregar relatórios.';
@@ -244,7 +245,8 @@ $('btnActivate').addEventListener('click', () => {
 $('btnRefresh').addEventListener('click', () => { loadRuns(); loadReports(); });
 
 loadRuns(); loadReports();
-setInterval(() => { loadRuns(); loadReports(); }, 60000);
+const refreshMs = localStorage.getItem(tokenKey) ? 60000 : 300000;
+setInterval(() => { loadRuns(); loadReports(); }, refreshMs);
 </script>
 </body>
 </html>
